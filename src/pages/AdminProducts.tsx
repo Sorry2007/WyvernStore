@@ -1,86 +1,147 @@
 // src/pages/AdminProducts.tsx
 import React, { useEffect, useState } from "react";
-import { getProducts, addProduct, updateProduct, deleteProduct } from "../services/productService";
 
-const emptyProduct = { title: "", author: "", genre: "", price: 0, image: "", description: "", stock: 0 };
+// 🔹 Importamos SOLO las funciones de productService
+import {
+  getProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+} from "../services/productService";
+
+// 🔹 Importamos el tipo Product usando `import type`
+import type { Product } from "../services/productService";
+
+import ProductCardAdmin from "../components/ProductCardAdmin";
 
 const AdminProducts: React.FC = () => {
-  const [products, setProducts] = useState<any[]>([]);
-  const [editing, setEditing] = useState<any | null>(null);
-  const [form, setForm] = useState<any>(emptyProduct);
-  const [loading, setLoading] = useState(false);
+  // Lista de productos
+  const [products, setProducts] = useState<Product[]>([]);
 
-  const load = async () => {
-    setLoading(true);
-    const p = await getProducts();
-    setProducts(p);
-    setLoading(false);
+  // Producto que estamos editando (null si no se está editando)
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+  // Formulario controlado usando un objeto Product
+  const [formData, setFormData] = useState<Product>({
+    title: "",
+    description: "",
+    price: 0,
+    image: "",
+  });
+
+  // 🔹 Se ejecuta cuando se carga la página
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  // 🔹 Cargar los productos desde Firestore
+  const loadData = async () => {
+    const data = await getProducts();
+    setProducts(data);
   };
 
-  useEffect(() => { load(); }, []);
-
-  const handleSave = async (e: React.FormEvent) => {
+  // 🔵 Guardar nuevo producto o aplicar edición
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editing) {
-      await updateProduct(editing.id, form);
+
+    if (editingProduct) {
+      // Si existe editingProduct → es una edición
+      await updateProduct(editingProduct.id!, formData);
+      setEditingProduct(null);
     } else {
-      await addProduct(form);
+      // Si no existe → es creación
+      await createProduct(formData);
     }
-    setForm(emptyProduct);
-    setEditing(null);
-    await load();
+
+    // Reiniciar formulario
+    setFormData({ title: "", description: "", price: 0, image: "" });
+
+    // Volver a cargar la data
+    loadData();
   };
 
-  const handleEdit = (p: any) => {
-    setEditing(p);
-    setForm({ ...p });
-  };
-
+  // 🔴 Eliminar un producto
   const handleDelete = async (id: string) => {
-    if (!confirm("Eliminar producto?")) return;
+    if (!confirm("¿Seguro que deseas eliminar este producto?")) return;
+
     await deleteProduct(id);
-    await load();
+    loadData();
   };
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl mb-4">Admin - Productos</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <form onSubmit={handleSave} className="bg-white p-4 rounded shadow space-y-3">
-            <h2 className="font-semibold">{editing ? "Editar producto" : "Crear producto"}</h2>
-            <input className="w-full p-2 border" placeholder="Título" value={form.title} onChange={(e)=>setForm({...form,title:e.target.value})} required />
-            <input className="w-full p-2 border" placeholder="Autor" value={form.author} onChange={(e)=>setForm({...form,author:e.target.value})} />
-            <input className="w-full p-2 border" placeholder="Género" value={form.genre} onChange={(e)=>setForm({...form,genre:e.target.value})} />
-            <input className="w-full p-2 border" placeholder="Precio" type="number" value={form.price} onChange={(e)=>setForm({...form,price: Number(e.target.value)})} />
-            <input className="w-full p-2 border" placeholder="URL imagen" value={form.image} onChange={(e)=>setForm({...form,image:e.target.value})} />
-            <textarea className="w-full p-2 border" placeholder="Descripción" value={form.description} onChange={(e)=>setForm({...form,description:e.target.value})} />
-            <div className="flex gap-2">
-              <button className="bg-green-600 text-white px-4 py-2 rounded">{editing ? "Actualizar" : "Crear"}</button>
-              <button type="button" className="bg-gray-300 px-4 py-2 rounded" onClick={()=>{ setForm(emptyProduct); setEditing(null); }}>Limpiar</button>
-            </div>
-          </form>
-        </div>
+    <div className="p-8">
+      <h1 className="text-3xl font-bold mb-6">Administrar Productos</h1>
 
-        <div>
-          <h2 className="font-semibold mb-3">Productos existentes</h2>
-          {loading ? <p>Cargando...</p> : (
-            <div className="space-y-3">
-              {products.map(p => (
-                <div key={p.id} className="bg-white p-3 rounded shadow flex justify-between items-center">
-                  <div>
-                    <div className="font-semibold">{p.title}</div>
-                    <div className="text-sm text-gray-500">{p.author}</div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button className="bg-yellow-400 px-3 py-1 rounded" onClick={()=>handleEdit(p)}>Editar</button>
-                    <button className="bg-red-500 text-white px-3 py-1 rounded" onClick={()=>handleDelete(p.id)}>Eliminar</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+      {/* FORMULARIO */}
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white p-6 rounded-xl shadow mb-8 max-w-xl"
+      >
+        <h2 className="text-xl font-semibold mb-4">
+          {editingProduct ? "Editar Producto" : "Crear Producto"}
+        </h2>
+
+        {/* Campo título */}
+        <input
+          type="text"
+          placeholder="Título"
+          className="input"
+          value={formData.title}
+          onChange={(e) =>
+            setFormData({ ...formData, title: e.target.value })
+          }
+        />
+
+        {/* Campo descripción */}
+        <textarea
+          placeholder="Descripción"
+          className="input"
+          value={formData.description}
+          onChange={(e) =>
+            setFormData({ ...formData, description: e.target.value })
+          }
+        />
+
+        {/* Campo precio */}
+        <input
+          type="number"
+          placeholder="Precio"
+          className="input"
+          value={formData.price}
+          onChange={(e) =>
+            setFormData({ ...formData, price: Number(e.target.value) })
+          }
+        />
+
+        {/* Campo URL imagen */}
+        <input
+          type="text"
+          placeholder="URL de imagen"
+          className="input"
+          value={formData.image}
+          onChange={(e) =>
+            setFormData({ ...formData, image: e.target.value })
+          }
+        />
+
+        <button className="w-full mt-4 bg-green-600 text-white py-2 rounded hover:bg-green-700">
+          {editingProduct ? "Guardar Cambios" : "Agregar Producto"}
+        </button>
+      </form>
+
+      {/* LISTA DE PRODUCTOS */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {products.map((p) => (
+          <ProductCardAdmin
+            key={p.id}
+            product={p}
+            onEdit={() => {
+              setEditingProduct(p);
+              setFormData(p); // Carga los valores en el formulario
+            }}
+            onDelete={() => handleDelete(p.id!)}
+          />
+        ))}
       </div>
     </div>
   );
